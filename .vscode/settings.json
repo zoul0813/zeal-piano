@@ -1,0 +1,16 @@
+{
+"C_Cpp.default.includePath": [
+  "${workspaceFolder}/include",
+  "${env:ZVB_SDK_PATH}/include",
+  "${env:ZVB_SDK_PATH}/sdcc",
+  "${env:ZOS_PATH}/kernel_headers/sdcc/include",
+  "${env:ZGDK_PATH}/include",
+],
+"files.associations": {
+  "*.asm": "z80-macroasm",
+  "stdint.h": "c",
+  "string.h": "c",
+  "memory_resource": "c",
+  "__node_handle": "cpp"
+},
+}
