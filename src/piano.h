@@ -24,9 +24,16 @@
 #define TILE_WAVEFORM     11
 #define WAVEFORM_X        4
 #define WAVEFORM_Y        13
+#define WAVEFORM_MIN      0
+#define WAVEFORM_MAX      2
 #define TILE_OCTAVE       8
 #define OCTAVE_X          2
 #define OCTAVE_Y          13
+
+#define TILE_RECORD       16
+#define RECORD_INDEX      0
+#define RECORD_X          32
+#define RECORD_Y          32
 
 typedef uint8_t error;
 
@@ -37,5 +44,8 @@ void load_tilemap(void);
 
 void update(void);
 void draw(void);
+
+void set_waveform(uint8_t w);
+void set_octave(uint8_t o);
 
 #endif

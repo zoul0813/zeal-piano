@@ -12,13 +12,17 @@
 
 #include "assets.h"
 #include "notes.h"
+#include "track.h"
 
 gfx_context vctx;
 uint16_t frames = 0;
-static uint8_t controller_mode = 1;
+uint8_t controller_mode = 1;
 
-static uint16_t waveform = 1;
-static uint8_t octave = 1;
+uint16_t waveform = 1;
+uint8_t octave = 1;
+
+gfx_sprite sprite_record;
+uint8_t sprite_record_frame = 0;
 
 int main(void) {
     init();
@@ -33,9 +37,13 @@ int main(void) {
                 goto quit_game;
         }
 
-        frames++;
-        if (frames > 15) {
-            frames = 0;
+        // frames++;
+        // if (frames > 15) {
+        //     frames = 0;
+        // }
+
+        if(_track.state != TRACK_NONE) {
+            frames++;
         }
 
         update();
@@ -62,20 +70,20 @@ void init(void) {
     }
     printf("keyboard initialized\n");
 
-    err = controller_init();
-    if (err != ERR_SUCCESS) {
-        printf("Failed to init controller: %d", err);
-    }
-    err = controller_flush();
-    if (err != ERR_SUCCESS) {
-        printf("Failed to flush controller: %d", err);
-    }
-    // verify the controller is actually connected
-    uint16_t test = controller_read();
-    // if unconnected, we'll get back 0xFFFF (all buttons pressed)
-    if (test & 0xFFFF) {
-        controller_mode = 0;
-    }
+    // err = controller_init();
+    // if (err != ERR_SUCCESS) {
+    //     printf("Failed to init controller: %d", err);
+    // }
+    // err = controller_flush();
+    // if (err != ERR_SUCCESS) {
+    //     printf("Failed to flush controller: %d", err);
+    // }
+    // // verify the controller is actually connected
+    // uint16_t test = controller_read();
+    // // if unconnected, we'll get back 0xFFFF (all buttons pressed)
+    // if (test & 0xFFFF) {
+    //     controller_mode = 0;
+    // }
 
     /* Disable the screen to prevent artifacts from showing */
     gfx_enable_screen(0);
@@ -96,7 +104,12 @@ void init(void) {
     gfx_tilemap_place(&vctx, TILE_WAVEFORM + waveform, 1, WAVEFORM_X, WAVEFORM_Y);
     gfx_tilemap_place(&vctx, TILE_OCTAVE + octave, 1, OCTAVE_X, OCTAVE_Y);
 
-    gfx_enable_screen(1);
+    sprite_record.flags = SPRITE_NONE;
+    sprite_record.tile = TILE_RECORD + 1;
+    sprite_record.x = RECORD_X;
+    sprite_record.y = RECORD_Y;
+    err = gfx_sprite_render(&vctx, RECORD_INDEX, &sprite_record);
+    if(err) exit(4);
 
     for (uint8_t i = 0; i < MAX_NOTES; i++) {
         Note *current = &NOTES[i];
@@ -111,6 +124,8 @@ void init(void) {
     sound_set(2, WAV_TRIANGLE);
     sound_set(3, WAV_SAWTOOTH);
     sound_init();
+
+    gfx_enable_screen(1);
 }
 
 void deinit(void) {
@@ -165,8 +180,10 @@ void set_octave(uint8_t o) {
 
 void set_waveform(uint8_t w) {
     gfx_tilemap_place(&vctx, TILE_WAVEFORM + waveform, 1, WAVEFORM_X, WAVEFORM_Y);
+
+    sound_stop_all();
     for (uint8_t i = 0; i < MAX_VOICES; i++) {
-        sound_set(i, waveform);
+        sound_set(i, w);
     }
 }
 
@@ -224,12 +241,12 @@ uint8_t input(void) {
                 /* WAVEFORM */
                 case KB_UP_ARROW:
                     waveform++;
-                    if (waveform > 2) waveform = 0;
+                    if (waveform > WAVEFORM_MAX) waveform = WAVEFORM_MIN;
                     set_waveform(waveform);
                     break;
                 case KB_DOWN_ARROW:
                     waveform--;
-                    if (waveform > 2) waveform = 2;
+                    if (waveform > WAVEFORM_MAX) waveform = WAVEFORM_MAX;
                     set_waveform(waveform);
                     break;
 
