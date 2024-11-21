@@ -18,8 +18,8 @@ gfx_context vctx;
 uint16_t frames = 0;
 uint8_t controller_mode = 1;
 
-uint16_t waveform = 1;
-uint8_t octave = 1;
+uint16_t waveform = 0; // current waveform
+uint8_t octave = 1; // current octave
 
 gfx_sprite sprite_record;
 uint8_t sprite_record_frame = 0;
@@ -37,12 +37,7 @@ int main(void) {
                 goto quit_game;
         }
 
-        // frames++;
-        // if (frames > 15) {
-        //     frames = 0;
-        // }
-
-        if(_track.state != TRACK_NONE) {
+        if(track_state() != TRACK_NONE) {
             frames++;
         }
 
@@ -52,6 +47,8 @@ int main(void) {
 
 quit_game:
     deinit();
+
+    track_print();
 
     return 0;
 }
@@ -105,10 +102,10 @@ void init(void) {
     gfx_tilemap_place(&vctx, TILE_OCTAVE + octave, 1, OCTAVE_X, OCTAVE_Y);
 
     sprite_record.flags = SPRITE_NONE;
-    sprite_record.tile = TILE_RECORD + 1;
-    sprite_record.x = RECORD_X;
-    sprite_record.y = RECORD_Y;
-    err = gfx_sprite_render(&vctx, RECORD_INDEX, &sprite_record);
+    sprite_record.tile = TILE_EMPTY;
+    sprite_record.x = STATE_X;
+    sprite_record.y = STATE_Y;
+    err = gfx_sprite_render(&vctx, STATE_INDEX, &sprite_record);
     if(err) exit(4);
 
     for (uint8_t i = 0; i < MAX_NOTES; i++) {
@@ -119,11 +116,17 @@ void init(void) {
         current->freq = freq;
     }
 
-    sound_set(0, WAV_SAWTOOTH);
-    sound_set(1, WAV_SQUARE);
-    sound_set(2, WAV_TRIANGLE);
-    sound_set(3, WAV_SAWTOOTH);
     sound_init();
+    for(uint8_t i = 0; i < MAX_VOICES; i++) {
+        sound_set(i, waveform);
+    }
+
+    track_init();
+
+    ascii_map(' ', 1, TILE_EMPTY);
+    ascii_map('0', 10, TILE_NUMBER);
+    ascii_map('a', 26, 64);
+    ascii_map('A', 26, 64);
 
     gfx_enable_screen(1);
 }
@@ -134,21 +137,36 @@ void deinit(void) {
 
     // deinit sprites
     // for(uint8_t i = 0; i < PLAYER_MAX_WIDTH + 2; i++) {
-    //     err = gfx_sprite_set_tile(&vctx, player.sprite_index+i, EMPTY_TILE);
+    //     err = gfx_sprite_set_tile(&vctx, player.sprite_index+i, TILE_EMPTY);
     // }
-    // err = gfx_sprite_set_tile(&vctx, ball.sprite_index, EMPTY_TILE);
+    // err = gfx_sprite_set_tile(&vctx, ball.sprite_index, TILE_EMPTY);
 
     err = ioctl(DEV_STDOUT, CMD_RESET_SCREEN, NULL);
 }
 
-static uint8_t keys[36];
+void load_tilemap(void) {
+    uint8_t line[WIDTH];
+    uint8_t line_l1[WIDTH];
+    uint8_t *tilemap = get_tilemap_start();
+    uint8_t *tilemap_l1 = get_tilemap_l1_start();
 
-static Note *playing[MAX_VOICES];
+    // Load the tilemap
+    for (uint16_t row = 0; row < HEIGHT; row++) {
+        uint16_t offset = row * WIDTH;
+        for (uint16_t col = 0; col < WIDTH; col++) {
+            line[col] = tilemap[offset + col] + TILEMAP_OFFSET;
+            line_l1[col] = tilemap_l1[offset + col] + TILEMAP_OFFSET;
+        }
+        // memcpy(&tiles[offset], &line, WIDTH);
+        gfx_tilemap_load(&vctx, line, WIDTH, 0, 0, row);
+        gfx_tilemap_load(&vctx, line_l1, WIDTH, 1, 0, row);
+    }
+}
+
+static Note *playing[MAX_VOICES] = { NULL, NULL, NULL, NULL };
 static uint8_t released = 0;
 
 void keypress(uint8_t note, uint8_t octave) {
-    (void *)released;
-
     uint16_t index = note + (octave * 12);
     if (index >= MAX_NOTES) return;  // ignore it
 
@@ -158,18 +176,35 @@ void keypress(uint8_t note, uint8_t octave) {
     uint8_t i = 0;
     for (i = 0; i < MAX_VOICES; i++) {
         Note *current = playing[i];
-        if(!released && current == NULL) {
+
+        if((!released) && (current == NULL)) {
             free = i;
             break;
         }
 
-        if (current->note == played->note && current->octave == played->octave) {
+        if ((current->note == played->note) && (current->octave == played->octave)) {
             playing[i] = NULL;  // remove it
+            if(track_state() == TRACK_RECORD) {
+                Record record = {
+                    .frame = frames,
+                    .freq = 0x00,
+                    .voice_wave = track_set_voice_wave(i, 0x0F), // (i << 4) | 0x0F,
+                };
+                track_store(&record);
+            }
         }
     }
 
     if(free >= 0) {
         playing[i] = played;
+        if(track_state() == TRACK_RECORD) {
+            Record record = {
+                .frame = frames,
+                .freq = played->freq,
+                .voice_wave = track_set_voice_wave(free, waveform), // (free << 4) | (waveform),
+            };
+            track_store(&record);
+        }
     }
 }
 
@@ -187,6 +222,7 @@ void set_waveform(uint8_t w) {
     }
 }
 
+static uint8_t keys[36];
 uint8_t input(void) {
     uint16_t input = 0;
     uint16_t size = sizeof(keys);
@@ -229,6 +265,43 @@ uint8_t input(void) {
                 case KB_ESC:
                     return ACTION_QUIT;
                     break;
+
+                /* Record/Playback */
+                case KB_KEY_SPACE:
+                case KB_KEY_COMMA:
+                    if(track_state() == TRACK_NONE) {
+                        frames = 0;
+                        gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD);
+                        track_init();
+                        track_record();
+                    } else {
+                        gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
+                        Record record = {
+                            .frame = frames,
+                            .freq = 0xFF,
+                            .voice_wave = 0xFF,
+                        };
+                        track_store(&record);
+                        track_stop();
+                    }
+                    break;
+                case KB_KEY_M:
+                    if(track_state() == TRACK_NONE) {
+                        frames = 0;
+                        gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_PLAY);
+                        track_play();
+                    } else {
+                        track_stop();
+                        gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
+                    }
+                    break;
+                case KB_KEY_N:
+                    track_stop();
+                    gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
+                    frames = 0;
+                    track_init();
+                    break;
+
 
                 /* STOP ALL */
                 case KB_KEY_TAB:
@@ -344,36 +417,75 @@ uint8_t input(void) {
     return ACTION_NONE;
 }
 
-void load_tilemap(void) {
-    uint8_t line[WIDTH];
-    uint8_t line_l1[WIDTH];
-    uint8_t *tilemap = get_tilemap_start();
-    uint8_t *tilemap_l1 = get_tilemap_l1_start();
-
-    // Load the tilemap
-    for (uint16_t row = 0; row < HEIGHT; row++) {
-        uint16_t offset = row * WIDTH;
-        for (uint16_t col = 0; col < WIDTH; col++) {
-            line[col] = tilemap[offset + col] + TILEMAP_OFFSET;
-            line_l1[col] = tilemap_l1[offset + col] + TILEMAP_OFFSET;
-        }
-        // memcpy(&tiles[offset], &line, WIDTH);
-        gfx_tilemap_load(&vctx, line, WIDTH, 0, 0, row);
-        gfx_tilemap_load(&vctx, line_l1, WIDTH, 1, 0, row);
-    }
-}
-
 void update(void) {
-    uint8_t i = 0;
-    for (i = 0; i < MAX_VOICES; i++) {
-        Note *current = playing[i];
-        if (current == NULL) continue;
-        sound_play(i, current->freq, 2);
+    switch(track_state()) {
+        case TRACK_PLAY:
+            Record *record = track_next(false);
+            if(record->frame == frames) {
+                uint16_t frame = record->frame;
+                uint8_t freq = record->freq;
+                uint8_t voice_wave = record->voice_wave;
+                uint8_t voice = track_get_voice(voice_wave); // ((voice_wave & 0xF0) >> 4);
+                uint8_t wave = track_get_wave(voice_wave); // (voice_wave & 0x0F);
+
+                if(voice_wave == 0xFF) {
+                    track_stop();
+                } else {
+                    if(wave >= 0x0F) {
+                        zvb_sound_set_voices((1 << voice), freq, WAV_SQUARE);
+                    } else {
+                        zvb_sound_set_voices((1 << voice), freq, wave);
+                    }
+                    track_tick();
+                }
+            }
+            break;
+        case TRACK_RECORD:
+        case TRACK_NONE:
+            uint8_t i = 0;
+            for (i = 0; i < MAX_VOICES; i++) {
+                Note *current = playing[i];
+                if (current == NULL) continue;
+                sound_play(i, current->freq, 2);
+            }
+            break;
     }
 }
 
 void draw(void) {
     gfx_wait_vblank(&vctx);
-    // ...
+
+    uint8_t voices = 0;
+    uint8_t i = 0;
+    for(i = 0; i < MAX_VOICES; i++) {
+        if(playing[i] != NULL) voices++;
+    }
+    if(voices > MAX_VOICES) {
+        voices = 9;
+    }
+    gfx_tilemap_place(&vctx, TILE_NUMBER + voices, 1, VOICES_X, VOICES_Y);
+    // gfx_tilemap_place(&vctx, TILE_NUMBER + track_state(), 1, VOICES_X + 2, VOICES_Y);
+
+    uint16_t len = track_length();
+    uint16_t pos = track_pos();
+
+    // 65536 - 5 bytes
+    char text[7];
+    sprintf(text, "L %05d", len);
+    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 11);
+    sprintf(text, "P %05d", pos);
+    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 12);
+    sprintf(text, "F %05d", frames);
+    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 13);
+
+    if(IS_EIGHTH(frames)) {
+        switch(track_state()) {
+            case TRACK_RECORD:
+                sprite_record_frame ^= 1;
+                gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD + sprite_record_frame);
+                break;
+        }
+    }
+
     gfx_wait_end_vblank(&vctx);
 }

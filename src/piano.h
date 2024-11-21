@@ -18,22 +18,27 @@
 #define UI_LAYER            1
 
 #define TILEMAP_OFFSET      0x00U
-#define EMPTY_TILE          0x00U
+#define TILE_EMPTY          0x00U
 
+#define TILE_OCTAVE         8
+#define OCTAVE_X            2
+#define OCTAVE_Y            13
 
-#define TILE_WAVEFORM     11
-#define WAVEFORM_X        4
-#define WAVEFORM_Y        13
-#define WAVEFORM_MIN      0
-#define WAVEFORM_MAX      2
-#define TILE_OCTAVE       8
-#define OCTAVE_X          2
-#define OCTAVE_Y          13
+#define TILE_WAVEFORM       11
+#define WAVEFORM_X          4
+#define WAVEFORM_Y          13
+#define WAVEFORM_MIN        0
+#define WAVEFORM_MAX        2
 
-#define TILE_RECORD       16
-#define RECORD_INDEX      0
-#define RECORD_X          32
-#define RECORD_Y          32
+#define TILE_RECORD         16
+#define TILE_PLAY           18
+#define STATE_INDEX         0
+#define STATE_X             32
+#define STATE_Y             32
+
+#define TILE_NUMBER         48
+#define VOICES_X            6
+#define VOICES_Y            13
 
 typedef uint8_t error;
 

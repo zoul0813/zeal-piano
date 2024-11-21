@@ -59,7 +59,7 @@ const static uint16_t OCTAVE5[] = {
 
 #define MAX_OCTAVE  2
 
-static Note NOTES[36] = {
+static Note NOTES[] = {
     /* 0 */ {
         .note = NOTE_C,
         .octave = 0,
@@ -205,8 +205,15 @@ static Note NOTES[36] = {
         .octave = 2,
     },
 };
-static uint8_t MAX_NOTES = sizeof(NOTES);
+static uint8_t MAX_NOTES = DIM(NOTES); // sizeof(NOTES) / sizeof(Note);
+// static uint8_t MAX_NOTES = sizeof(NOTES) / sizeof(Note);
 
 #define KEY_TO_NOTE(key, octave) &NOTES[key + (octave * 12)]
 #define NOTE_TO_FREQ(note) OCTAVE5[note]
 #define NOTE_FREQ(note) OCTAVE5[note];
+
+#define IS_SIXTEENTH(frames) ((frames % 8) == 0)
+#define IS_EIGHTH(frames) ((frames % 16) == 0)
+#define IS_QUARTER(frames) ((frames % 32) == 0)
+#define IS_HALF(frames) ((frames % 64) == 0)
+#define IS_WHOLE(frames) ((frames % 128) == 0)

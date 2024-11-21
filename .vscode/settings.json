@@ -11,6 +11,8 @@
   "stdint.h": "c",
   "string.h": "c",
   "memory_resource": "c",
-  "__node_handle": "cpp"
+  "__node_handle": "cpp",
+  "locale": "c",
+  "source_location": "c"
 },
 }
