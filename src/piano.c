@@ -472,11 +472,11 @@ void draw(void) {
     // 65536 - 5 bytes
     char text[7];
     sprintf(text, "L %05d", len);
-    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 11);
+    nprint_string(&vctx, text, 7, WIDTH - 7, 11);
     sprintf(text, "P %05d", pos);
-    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 12);
+    nprint_string(&vctx, text, 7, WIDTH - 7, 12);
     sprintf(text, "F %05d", frames);
-    nprint_string(&vctx, text, sizeof(text), WIDTH - 6, 13);
+    nprint_string(&vctx, text, 7, WIDTH - 7, 13);
 
     if(IS_EIGHTH(frames)) {
         switch(track_state()) {
