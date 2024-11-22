@@ -4,8 +4,6 @@
 typedef struct {
   uint16_t note;
   uint16_t freq;
-  uint8_t octave;
-//   uint8_t playing;
 } Note;
 
 const static uint16_t OCTAVE5[] = {
@@ -62,147 +60,183 @@ const static uint16_t OCTAVE5[] = {
 static Note NOTES[] = {
     /* 0 */ {
         .note = NOTE_C,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(131),
     },
     /* 1 */ {
         .note = NOTE_Cs,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(139),
     },
     /* 2 */ {
         .note = NOTE_D,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(147),
     },
     /* 3 */ {
         .note = NOTE_Ds,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(155),
     },
     /* 4 */ {
         .note = NOTE_E,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(165),
     },
     /* 5 */ {
         .note = NOTE_F,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(175),
     },
     /* 6 */ {
         .note = NOTE_Fs,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(185),
     },
     /* 7 */ {
         .note = NOTE_G,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(196),
     },
     /* 8 */ {
         .note = NOTE_Gs,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(208),
     },
     /* 9 */ {
         .note = NOTE_A,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(220),
     },
     /* 10 */ {
         .note = NOTE_As,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(233),
     },
     /* 11 */ {
         .note = NOTE_B,
-        .octave = 0,
+        // .octave = 3,
+        .freq = SOUND_FREQ_TO_DIV(247),
     },
     /* 12 */ {
         .note = NOTE_C,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(262),
     },
     /* 13 */ {
         .note = NOTE_Cs,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(277),
     },
     /* 14 */ {
         .note = NOTE_D,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(294),
     },
     /* 15 */ {
         .note = NOTE_Ds,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(311),
     },
     /* 16 */ {
         .note = NOTE_E,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(330),
     },
     /* 17 */ {
         .note = NOTE_F,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(349),
     },
     /* 18 */ {
         .note = NOTE_Fs,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(370),
     },
     /* 19 */ {
         .note = NOTE_G,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(392),
     },
     /* 20 */ {
         .note = NOTE_Gs,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(415),
     },
     /* 21 */ {
         .note = NOTE_A,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(440),
     },
     /* 22 */ {
         .note = NOTE_As,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(466),
     },
     /* 23 */ {
         .note = NOTE_B,
-        .octave = 1,
+        // .octave = 4,
+        .freq = SOUND_FREQ_TO_DIV(494),
     },
     /* 24 */ {
         .note = NOTE_C,
-        .octave = 2,
+        // .octave = 5,
+        .freq = SOUND_FREQ_TO_DIV(523),
     },
     /* 25 */ {
         .note = NOTE_Cs,
-        .octave = 2,
+        // .octave = 5,
+        .freq = SOUND_FREQ_TO_DIV(554),
     },
     /* 26 */ {
         .note = NOTE_D,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(587),
+        // .octave = 5,
     },
     /* 27 */ {
         .note = NOTE_Ds,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(622),
+        // .octave = 5,
     },
     /* 28 */ {
         .note = NOTE_E,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(659),
+        // .octave = 5,
     },
     /* 29 */ {
         .note = NOTE_F,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(699),
+        // .octave = 5,
     },
     /* 30 */ {
         .note = NOTE_Fs,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(740),
+        // .octave = 5,
     },
     /* 31 */ {
         .note = NOTE_G,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(784),
+        // .octave = 5,
     },
     /* 32 */ {
         .note = NOTE_Gs,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(831),
+        // .octave = 5,
     },
     /* 33 */ {
         .note = NOTE_A,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(880),
+        // .octave = 5,
     },
     /* 34 */ {
         .note = NOTE_As,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(932),
+        // .octave = 5,
     },
     /* 35 */ {
         .note = NOTE_B,
-        .octave = 2,
+        .freq = SOUND_FREQ_TO_DIV(988),
+        // .octave = 5,
     },
 };
 static uint8_t MAX_NOTES = DIM(NOTES); // sizeof(NOTES) / sizeof(Note);

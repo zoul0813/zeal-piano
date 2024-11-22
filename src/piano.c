@@ -13,6 +13,7 @@
 #include "assets.h"
 #include "notes.h"
 #include "track.h"
+#include "file.h"
 
 gfx_context vctx;
 uint16_t frames = 0;
@@ -20,14 +21,20 @@ uint8_t controller_mode = 1;
 
 uint16_t waveform = 0; // current waveform
 uint8_t octave = 1; // current octave
+int8_t volume = 3;
 
 gfx_sprite sprite_record;
-uint8_t sprite_record_frame = 0;
+// uint8_t sprite_record_frame = 0;
 
-int main(void) {
+int main(int argc, char** argv) {
+    (void *)argc;
+    (void *)argv;
+
     init();
 
     load_tilemap();
+    set_volume(volume);
+    file_load("b:/piano.ptz", track_get());
 
     while (true) {
         sound_loop();
@@ -37,7 +44,7 @@ int main(void) {
                 goto quit_game;
         }
 
-        if(track_state() != TRACK_NONE) {
+        if(track_state() != T_NONE) {
             frames++;
         }
 
@@ -48,7 +55,9 @@ int main(void) {
 quit_game:
     deinit();
 
-    track_print();
+    // track_print();
+
+    file_save(track_get());
 
     return 0;
 }
@@ -108,14 +117,6 @@ void init(void) {
     err = gfx_sprite_render(&vctx, STATE_INDEX, &sprite_record);
     if(err) exit(4);
 
-    for (uint8_t i = 0; i < MAX_NOTES; i++) {
-        Note *current = &NOTES[i];
-        uint8_t o = 2 - current->octave;
-        uint16_t freq = NOTE_TO_FREQ(current->note);
-        freq = freq >> (2 * o);
-        current->freq = freq;
-    }
-
     sound_init();
     for(uint8_t i = 0; i < MAX_VOICES; i++) {
         sound_set(i, waveform);
@@ -135,7 +136,9 @@ void deinit(void) {
     gfx_error err;  // TODO: handle errors
     err = sound_deinit();
 
+
     // deinit sprites
+    gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
     // for(uint8_t i = 0; i < PLAYER_MAX_WIDTH + 2; i++) {
     //     err = gfx_sprite_set_tile(&vctx, player.sprite_index+i, TILE_EMPTY);
     // }
@@ -164,12 +167,23 @@ void load_tilemap(void) {
 }
 
 static Note *playing[MAX_VOICES] = { NULL, NULL, NULL, NULL };
+static uint8_t playing_changed[MAX_VOICES] = { 0 };
 static uint8_t released = 0;
+static uint8_t key_state[15] = { 0 };
 
 void keypress(uint8_t note, uint8_t octave) {
     uint16_t index = note + (octave * 12);
     if (index >= MAX_NOTES) return;  // ignore it
 
+    /* If the key is already pressed and we still got a press, ignore */
+    const uint8_t previous_state = key_state[note];
+    const uint8_t new_state = !released;
+
+    if (previous_state == new_state) {
+        return;
+    }
+
+    key_state[note] = new_state;
     Note *played = &NOTES[index];
     int8_t free = -1;
 
@@ -182,12 +196,13 @@ void keypress(uint8_t note, uint8_t octave) {
             break;
         }
 
-        if ((current->note == played->note) && (current->octave == played->octave)) {
+        if (released && current == played) {
             playing[i] = NULL;  // remove it
-            if(track_state() == TRACK_RECORD) {
+            playing_changed[i] = 1;
+            if(track_state() == T_RECORD) {
                 Record record = {
                     .frame = frames,
-                    .freq = 0x00,
+                    .freq = FREQ_NONE,
                     .voice_wave = track_set_voice_wave(i, 0x0F), // (i << 4) | 0x0F,
                 };
                 track_store(&record);
@@ -196,8 +211,9 @@ void keypress(uint8_t note, uint8_t octave) {
     }
 
     if(free >= 0) {
+        playing_changed[i] = 1;
         playing[i] = played;
-        if(track_state() == TRACK_RECORD) {
+        if(track_state() == T_RECORD) {
             Record record = {
                 .frame = frames,
                 .freq = played->freq,
@@ -219,6 +235,30 @@ void set_waveform(uint8_t w) {
     sound_stop_all();
     for (uint8_t i = 0; i < MAX_VOICES; i++) {
         sound_set(i, w);
+    }
+}
+
+void set_volume(int8_t v) {
+    if(v < VOLUME_MIN) v = VOLUME_MIN;
+    if(v > VOLUME_MAX) v = VOLUME_MAX;
+    volume = v;
+
+    for(int8_t i = VOLUME_MIN + 1; i < VOLUME_MAX + 1; i++) {
+        uint8_t tile = TILE_EMPTY;
+        if((volume > 0) && (volume >= i)) {
+            tile = TILE_PROGRESS;
+        }
+        gfx_tilemap_place(&vctx, tile, 1, 2 + (i - 1), 12);
+    }
+
+    // char text[7];
+    // sprintf(text, "V %02d", volume);
+    // nprint_string(&vctx, text, 4, WIDTH - 4, 1);
+
+    if(volume == 0) {
+        zvb_sound_set_volume(VOL_0);
+    } else {
+        zvb_sound_set_volume(volume - 1);
     }
 }
 
@@ -267,49 +307,43 @@ uint8_t input(void) {
                     return ACTION_QUIT;
                     break;
 
+                /* Volume */
+                case KB_KEY_MINUS:
+                    volume--;
+                    set_volume(volume);
+                    break;
+                case KB_KEY_EQUAL:
+                    volume++;
+                    set_volume(volume);
+                    break;
+
                 /* Record/Playback */
                 case KB_KEY_SPACE:
-                case KB_KEY_COMMA:
-                    if(state == TRACK_NONE) {
+                case KB_KEY_COMMA: // RECORD
+                    if(state == T_NONE) {
                         frames = 0;
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD);
-                        track_init();
-                        track_record();
+                        track_transport(T_RECORD, frames);
                     } else {
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
-                        Record record = {
-                            .frame = frames,
-                            .freq = 0xFF,
-                            .voice_wave = 0xFF,
-                        };
-                        track_store(&record);
-                        track_stop();
+                        track_transport(T_NONE, frames);
                     }
                     break;
-                case KB_KEY_M:
-                    if(state == TRACK_NONE) {
+                case KB_KEY_M: // PLAY
+                    if(state == T_NONE) {
                         frames = 0;
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_PLAY);
-                        track_play();
+                        track_transport(T_PLAY, frames);
                     } else {
-                        if(state == TRACK_RECORD) {
-                            Record record = {
-                                .frame = frames,
-                                .freq = 0xFF,
-                                .voice_wave = 0xFF,
-                            };
-                            track_store(&record);
-                            track_stop();
-                        }
-                        track_stop();
+                        track_transport(T_NONE, frames);
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
                     }
                     break;
-                case KB_KEY_N:
-                    track_stop();
-                    gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
+                case KB_KEY_N: // NEW
                     frames = 0;
+                    track_transport(T_NONE, frames);
                     track_init();
+                    gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
                     break;
 
 
@@ -429,19 +463,19 @@ uint8_t input(void) {
 
 void update(void) {
     switch(track_state()) {
-        case TRACK_PLAY:
+        case T_PLAY:
             Record *record = track_next(false);
             do {
                 if(record->frame == frames) {
                     uint16_t frame = record->frame;
-                    uint8_t freq = record->freq;
+                    uint16_t freq = record->freq;
                     uint8_t voice_wave = record->voice_wave;
                     uint8_t voice = track_get_voice(voice_wave); // ((voice_wave & 0xF0) >> 4);
                     uint8_t wave = track_get_wave(voice_wave); // (voice_wave & 0x0F);
 
                     track_tick();
                     if(voice_wave == 0xFF) {
-                        track_stop();
+                        track_transport(T_NONE, frames);
                         record = NULL;
                     } else {
                         if(wave >= 0x0F) {
@@ -456,13 +490,20 @@ void update(void) {
                 }
             } while(record != NULL);
             break;
-        case TRACK_RECORD:
-        case TRACK_NONE:
+        case T_RECORD:
+        case T_NONE:
             uint8_t i = 0;
             for (i = 0; i < MAX_VOICES; i++) {
                 Note *current = playing[i];
-                if (current == NULL) continue;
-                sound_play(i, current->freq, 2);
+                if (playing_changed[i] != 0) {
+                    if (current == NULL) {
+                        // FIXME: use stop function ?
+                        sound_play(i, 0, 0xffff);
+                    } else {
+                        sound_play(i, current->freq, 0xffff);
+                        playing_changed[i] = 0;
+                    }
+                }
             }
             break;
     }
@@ -487,20 +528,27 @@ void draw(void) {
 
     // 65536 - 5 bytes
     char text[7];
-    sprintf(text, "L %05d", len);
-    nprint_string(&vctx, text, 7, WIDTH - 7, 11);
-    sprintf(text, "P %05d", pos);
-    nprint_string(&vctx, text, 7, WIDTH - 7, 12);
-    sprintf(text, "F %05d", frames);
-    nprint_string(&vctx, text, 7, WIDTH - 7, 13);
+    sprintf(text, "L%05d", len);
+    nprint_string(&vctx, text, 6, WIDTH - 7, 11);
+    sprintf(text, "P%05d", pos);
+    nprint_string(&vctx, text, 6, WIDTH - 7, 12);
+    sprintf(text, "F%05d", frames);
+    nprint_string(&vctx, text, 6, WIDTH - 7, 13);
 
-    if(IS_EIGHTH(frames)) {
-        switch(track_state()) {
-            case TRACK_RECORD:
-                sprite_record_frame ^= 1;
-                gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD + sprite_record_frame);
-                break;
-        }
+    switch(track_state()) {
+        case T_RECORD:
+            uint8_t frame = 0;
+            // if(IS_EIGHTH(frames)) {
+            //     frame = 0;
+            // }
+            if(IS_QUARTER(frames)) {
+                frame = 2;
+            }
+            if(IS_WHOLE(frames)) {
+                frame = 1;
+            }
+            gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD + frame);
+            break;
     }
 
     gfx_wait_end_vblank(&vctx);

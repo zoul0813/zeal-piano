@@ -1,36 +1,51 @@
 #include <stdint.h>
 
+#ifdef __SDCC_VERSION_MAJOR
+#include <zgdk.h>
+#endif
+
 #ifndef TRACK_H
 #define TRACK_H
+
 
 // 16k / 4
 #define MAX_RECORDS   4096
 
 typedef struct {
   uint16_t frame;
-  uint8_t freq;
+  uint16_t freq;
   uint8_t voice_wave;
-} Record;
+} __attribute__((packed)) Record;
 
-#define TRACK_NONE    0
-#define TRACK_RECORD  1
-#define TRACK_PLAY    2
+// #define TRACK_NONE    0
+// #define TRACK_RECORD  1
+// #define TRACK_PLAY    2
+
+#define FREQ_NONE           0
+#define FILENAME_MAX_LEN    16 /* ZealFS */
+
+typedef enum {
+  T_NONE    = 0,
+  T_PLAY    = 1,
+  T_RECORD  = 2,
+} track_state_t;
 
 typedef struct {
-  uint8_t state;
+  track_state_t state;
   uint16_t length;
   Record records[MAX_RECORDS];
-} Track;
+} __attribute__((packed)) Track;
 
 
-// Track* track_get(void);
+Track* track_get(void);
 void track_init(void);
-void track_record(void);
-void track_play(void);
-void track_stop(void);
+void track_transport(track_state_t state, uint16_t frame);
+// void track_record(void);
+// void track_play(void);
+// void track_stop(void);
 void track_store(Record *record);
 void track_tick(void);
-uint8_t track_state(void);
+track_state_t track_state(void);
 Record* track_next(uint8_t tick);
 Record* track_at(uint16_t position);
 

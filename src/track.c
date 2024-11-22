@@ -6,8 +6,12 @@
 static Track track;
 static uint16_t track_position;
 
+Track* track_get(void) {
+  return &track;
+}
+
 void track_init(void) {
-  track.state = TRACK_NONE;
+  track.state = T_NONE;
   track_position = 0;
   track.length = 0;
 
@@ -21,20 +25,56 @@ void track_init(void) {
   }
 }
 
-void track_stop(void) {
-  track_position = 0;
-  track.state = TRACK_NONE;
+void track_transport(track_state_t state, uint16_t frame) {
+  // if we're recordiong, or playing, we stop
+  if(state == track.state) state = T_NONE;
+
+  switch(track.state) {
+    case T_RECORD:
+      // add the "END" record
+      Record record = {
+          .frame = frame,
+          .freq = 0xFF,
+          .voice_wave = 0xFF,
+      };
+      track_store(&record);
+      break;
+  }
+
+  // track_position = 0; // maybe
+  track.state = state;
+
+  switch(state) {
+    case T_PLAY:
+      if(frame > 0) {
+        Record *prev = NULL;
+        for(uint16_t i = 0; i < MAX_RECORDS; i++) {
+          Record *record = track_at(i);
+          // found a matching frame
+          if(record->frame == frame) {
+            track_position = i;
+            break;
+          }
+          // requested frame is between prev/next, so use prev
+          if(record->frame > frame && prev != NULL) {
+            track_position = i--; //prev->frame;
+            break;
+          }
+          // // we found the last record, so stop
+          if(track_end(record)) {
+            track_position = i;
+            break;
+          }
+          prev = record;
+        }
+      } else {
+        track_position = 0;
+      }
+      break;
+  }
 }
 
-void track_play(void) {
-  track.state = TRACK_PLAY;
-}
-
-void track_record(void) {
-  track.state = TRACK_RECORD;
-}
-
-uint8_t track_state(void) {
+track_state_t track_state(void) {
   return track.state;
 }
 
@@ -60,7 +100,9 @@ void track_store(Record *record) {
 void track_tick(void) {
   track_position++;
   if(track_position >= MAX_RECORDS) {
-    track_stop();
+    track_position = MAX_RECORDS - 1;
+    uint16_t frame = track.records[track_position].frame;
+    track_transport(T_NONE, frame);
   }
 }
 
@@ -88,7 +130,7 @@ void track_print(void) {
     uint8_t voice_wave = record->voice_wave;
 
     if(freq == 0xFF && voice_wave == 0xFF) {
-      printf("END\n\n");
+      printf("END (%d)\n\n", frame);
       break;
     }
 

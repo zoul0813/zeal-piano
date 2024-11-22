@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <zvb_gfx.h>
+#include <zvb_sound.h>
 
 #ifndef PIANO_H
 #define PIANO_H
@@ -31,7 +32,7 @@
 #define WAVEFORM_MAX        2
 
 #define TILE_RECORD         16
-#define TILE_PLAY           18
+#define TILE_PLAY           19
 #define STATE_INDEX         0
 #define STATE_X             32
 #define STATE_Y             32
@@ -39,6 +40,11 @@
 #define TILE_NUMBER         48
 #define VOICES_X            6
 #define VOICES_Y            13
+
+#define TILE_PROGRESS       21
+
+#define VOLUME_MIN          0
+#define VOLUME_MAX          4
 
 typedef uint8_t error;
 
@@ -52,5 +58,6 @@ void draw(void);
 
 void set_waveform(uint8_t w);
 void set_octave(uint8_t o);
+void set_volume(int8_t v);
 
 #endif
