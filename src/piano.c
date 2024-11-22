@@ -259,6 +259,7 @@ uint8_t input(void) {
             continue;
         }
 
+        uint8_t state = track_state();
         if (!released) {
             switch (k) {
                 /* PROGRAM */
@@ -269,7 +270,7 @@ uint8_t input(void) {
                 /* Record/Playback */
                 case KB_KEY_SPACE:
                 case KB_KEY_COMMA:
-                    if(track_state() == TRACK_NONE) {
+                    if(state == TRACK_NONE) {
                         frames = 0;
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_RECORD);
                         track_init();
@@ -286,11 +287,20 @@ uint8_t input(void) {
                     }
                     break;
                 case KB_KEY_M:
-                    if(track_state() == TRACK_NONE) {
+                    if(state == TRACK_NONE) {
                         frames = 0;
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_PLAY);
                         track_play();
                     } else {
+                        if(state == TRACK_RECORD) {
+                            Record record = {
+                                .frame = frames,
+                                .freq = 0xFF,
+                                .voice_wave = 0xFF,
+                            };
+                            track_store(&record);
+                            track_stop();
+                        }
                         track_stop();
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
                     }
@@ -421,24 +431,30 @@ void update(void) {
     switch(track_state()) {
         case TRACK_PLAY:
             Record *record = track_next(false);
-            if(record->frame == frames) {
-                uint16_t frame = record->frame;
-                uint8_t freq = record->freq;
-                uint8_t voice_wave = record->voice_wave;
-                uint8_t voice = track_get_voice(voice_wave); // ((voice_wave & 0xF0) >> 4);
-                uint8_t wave = track_get_wave(voice_wave); // (voice_wave & 0x0F);
+            do {
+                if(record->frame == frames) {
+                    uint16_t frame = record->frame;
+                    uint8_t freq = record->freq;
+                    uint8_t voice_wave = record->voice_wave;
+                    uint8_t voice = track_get_voice(voice_wave); // ((voice_wave & 0xF0) >> 4);
+                    uint8_t wave = track_get_wave(voice_wave); // (voice_wave & 0x0F);
 
-                if(voice_wave == 0xFF) {
-                    track_stop();
-                } else {
-                    if(wave >= 0x0F) {
-                        zvb_sound_set_voices((1 << voice), freq, WAV_SQUARE);
-                    } else {
-                        zvb_sound_set_voices((1 << voice), freq, wave);
-                    }
                     track_tick();
+                    if(voice_wave == 0xFF) {
+                        track_stop();
+                        record = NULL;
+                    } else {
+                        if(wave >= 0x0F) {
+                            zvb_sound_set_voices((1 << voice), freq, WAV_SQUARE);
+                        } else {
+                            zvb_sound_set_voices((1 << voice), freq, wave);
+                        }
+                        record = track_next(false);
+                    }
+                } else {
+                    record = NULL;
                 }
-            }
+            } while(record != NULL);
             break;
         case TRACK_RECORD:
         case TRACK_NONE:
