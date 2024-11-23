@@ -78,7 +78,7 @@ zos_err_t file_load(const char* path, Track *track) {
   zos_dev_t dev = open(filename, O_RDONLY);
   if(dev < 0) {
     // failed to open
-    return ~dev;
+    return -dev;
   }
 
   uint16_t position = 0;
