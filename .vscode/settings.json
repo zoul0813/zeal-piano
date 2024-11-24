@@ -14,6 +14,7 @@
   "__node_handle": "cpp",
   "locale": "c",
   "source_location": "c",
-  "cstdlib": "c"
+  "cstdlib": "c",
+  "stdio.h": "c"
 },
 }

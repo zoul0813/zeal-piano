@@ -27,14 +27,20 @@ gfx_sprite sprite_record;
 // uint8_t sprite_record_frame = 0;
 
 int main(int argc, char** argv) {
-    (void *)argc;
-    (void *)argv;
+    // (void *)argc;
+    // (void *)argv;
+
+    if(argc == 1) {
+        file_set(argv[0]);
+    } else {
+        file_set("b:/piano.ptz");
+    }
 
     init();
 
     load_tilemap();
     set_volume(volume);
-    file_load("b:/piano.ptz", track_get());
+    file_load(file_get(), track_get());
 
     while (true) {
         sound_loop();

@@ -5,6 +5,8 @@
 #include <zos_vfs.h>
 #include "file.h"
 
+char* filename;
+
 static void print_record(Record *record) {
     uint16_t frame = record->frame;
     uint8_t freq = record->freq;
@@ -29,10 +31,19 @@ static void print_record(Record *record) {
     printf("\n");
 }
 
+zos_err_t file_set(const char* path) {
+  filename = path;
+  return ERR_SUCCESS;
+}
+
+const char* file_get(void) {
+  return filename;
+}
+
 zos_err_t file_save(Track *track) {
   (void *)track;
 
-  const char* filename = "B:/piano.ptz";
+  // const char* filename = "B:/piano.ptz";
   zos_dev_t dev = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
   if(dev < 0) {
     printf("Could not open '%s'\n", filename);
@@ -62,7 +73,7 @@ zos_err_t file_save(Track *track) {
 zos_err_t file_load(const char* path, Track *track) {
   (void *)path;
   (void *)track;
-  const char* filename = "B:/piano.ptz";
+  // const char* filename = "B:/piano.ptz";
   zos_dev_t dev = open(filename, O_RDONLY);
   if(dev < 0) {
     // failed to open
