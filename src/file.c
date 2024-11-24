@@ -38,36 +38,24 @@ zos_err_t file_save(Track *track) {
     printf("Could not open '%s'\n", filename);
   }
 
-  uint16_t position = 0;
-  uint16_t filesize = 0;
-  while(1) {
-    Record *record = track_at(position);
-    if(record == NULL) break;
+  uint16_t size = sizeof(uint16_t);
+  zos_err_t err = write(dev, &track->length, &size);
+  if(err != ERR_SUCCESS) {
+    printf("Failed to write header, wrote %d with error %d (%02x)\n", size, err, err);
+    return err;
+  }
 
-    uint16_t size = sizeof(Record);
-    zos_err_t err = write(dev, record, &size);
-    if(err != ERR_SUCCESS) {
-      printf("Failed to write record at position %d (%d)\n", position, err);
-      break;
-    }
-
-    if(size != sizeof(Record)) {
-      printf("Failed to write record at position %d, wrote %d bytes\n", position, size);
-      break;
-    }
-
-    position++;
-    filesize+=size;
-
-    if((position > MAX_RECORDS) || (track_end(record))) {
-      break;
-    }
+  size = sizeof(Record) * track->length;
+  err = write(dev, track->records, &size);
+  if(err != ERR_SUCCESS) {
+    printf("Failed to write records, wrote %d with error %d (%02x)\n", size, err, err);
+    return err;
   }
 
   // at the end, close the file and leave
   close(dev);
 
-  printf("Wrote %d records to '%s' (%d bytes)\n", position, filename, filesize);
+  printf("Wrote %d records to '%s' (%d bytes)\n", track->length, filename, size + 2);
   return ERR_SUCCESS;
 }
 
@@ -84,32 +72,21 @@ zos_err_t file_load(const char* path, Track *track) {
   uint16_t position = 0;
   track_init();
 
-  while(1) {
-    Record record;
-    uint16_t size = sizeof(Record);
-    zos_err_t err = read(dev, &record, &size);
-    if(err != ERR_SUCCESS) {
-      printf("Failed to load record at position %d\n", position);
-      return err;
-    }
-
-    if(size == 0) {
-      close(dev);
-      break;
-    } else if(size != sizeof(Record)) {
-      printf("Failed to read record at position %d, read %d bytes", position, size);
-      return ERR_ENTRY_CORRUPTED;
-    }
-
-    // print_record(&record);
-
-    track_store(&record);
-
-    if(track_end(&record)) {
-      close(dev);
-      break;
-    }
+  uint16_t size = sizeof(uint16_t);
+  zos_err_t err = read(dev, &track->length, &size);
+  if(err != ERR_SUCCESS) {
+    printf("Failed to load header, read %d with error %d (%02x)\n", size, err, err);
+    return err;
   }
+
+  size = sizeof(Record) * track->length;
+  err = read(dev, track->records, &size);
+  if(err != ERR_SUCCESS) {
+    printf("Failed to load records, read %d with %d (%02x)\n", size, err, err);
+    return err;
+  }
+
+  close(dev);
 
   return ERR_SUCCESS;
 }
