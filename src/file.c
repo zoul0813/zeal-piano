@@ -5,7 +5,7 @@
 #include <zos_vfs.h>
 #include "file.h"
 
-char* filename;
+const char* filename;
 
 static void print_record(Record *record) {
     uint16_t frame = record->frame;

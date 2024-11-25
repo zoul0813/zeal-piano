@@ -63,14 +63,43 @@ quit_game:
 
     // track_print();
 
-    file_save(track_get());
+    keyboard_flush();
+    void* arg = (void*) (KB_READ_BLOCK | KB_MODE_COOKED);
+    zos_err_t err = ioctl(DEV_STDIN, KB_CMD_SET_MODE, arg);
+    if(err != ERR_SUCCESS) {
+        printf("Failed to change keyboard mode %d (%02x)\n", err, err);
+        exit(1);
+    }
+
+    char key[128] = { 0x00 };
+    uint16_t size = 0;
+    do {
+        printf("Enter filename to save recording, press enter to quit without saving:\n");
+        size = sizeof(key);
+        zos_err_t err = read(DEV_STDIN, key, &size);
+        if(err != ERR_SUCCESS) {
+            printf("keyboard error: %d (%02x)\n", err, err);
+        }
+
+        if(size > 0) {
+            switch(key[0]) {
+                case KB_KEY_ENTER:
+                    printf("File not saved\n");
+                    break;
+                default:
+                    key[size - 1] = 0x00;
+                    file_set(key);
+                    file_save(track_get());
+            }
+        }
+    } while(size == 0);
 
     return 0;
 }
 
 void init(void) {
     zos_err_t err;
-    err = keyboard_init();
+    err = keyboard_init(0);
     if (err != ERR_SUCCESS) {
         printf("Failed to init keyboard: %d\n", err);
         exit(1);
