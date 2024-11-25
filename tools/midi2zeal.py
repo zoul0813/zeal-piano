@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 
+import argparse
+from pathlib import Path
 import mido
 
-# Open a MIDI file
-mid = mido.MidiFile('./tools/sample.mid')
+parser = argparse.ArgumentParser("midi2zeal")
+parser.add_argument('-o', '--output', help='Output filename', required=True)
+parser.add_argument("filename", nargs='+', help="Input Filename")
+args = parser.parse_args()
+print(args)
+# exit(0)
 
-TICKS_PER_QUARTER = 96
+
+# Open a MIDI file
+mid = mido.MidiFile(args.filename[0])
+
+TICKS_PER_QUARTER = mid.ticks_per_beat
 TICKS_PER_FRAME = 32 # roughly?
 TICK_DIVISOR = TICKS_PER_QUARTER / TICKS_PER_FRAME
 
@@ -36,18 +46,29 @@ tracks = mido.merge_tracks(mid.tracks, skip_checks=False)
 
 
 frames = 1
+ticks = 0
 binary = bytearray()
 records = 0
+allowed_messages = ['note_on', 'note_off']
 for message in tracks:
-  # print(vars(message))
-  # print(dir(message))
-  # print(message)
-  if message.is_meta:
+  time = message.time + ticks
+  ticks = time
+  offset = ticks / TICK_DIVISOR
+  frames = int(offset)
+
+  if message.is_meta or message.is_cc():
+    # print(message.type, "is_meta", message.is_meta, "is_cc", message.is_cc)
     continue
 
+  if message.type not in allowed_messages:
+    # print(message.type, "not in", allowed_messages)
+    continue
+
+  print(vars(message))
+  # print(dir(message))
+  # print(message)
+
   records += 1
-  offset = message.time / TICK_DIVISOR
-  frames += int(offset)
   freq = note2freq(message.note)
   voice = message.channel
   wave = message.channel
@@ -62,13 +83,16 @@ for message in tracks:
   bin += freq.to_bytes(2, 'little')
   bin += voice_wave.to_bytes(1, 'little')
 
-  output = f"{frames:05d} {on_off}({freq:04d}) {voice:02x} {wave:02x} {voice_wave:02x}"
+  output = f"{frames:05d} {on_off}({freq:04d}) {voice:02x} {wave:02x} {voice_wave:02x} [{message.note}]"
   print(output)
 
   binary += bytes(bin)
 
+  if records >= 2048:
+    break
+
 # print(binary)
-with open("sample.ptz", "wb") as f:
+with open(args.output, "wb") as f:
   # header
   records += 1 # end marker
   f.write(records.to_bytes(2, 'little'))
@@ -82,3 +106,5 @@ with open("sample.ptz", "wb") as f:
   f.write((frames).to_bytes(2, 'little'))
   f.write((0xFF).to_bytes(2, 'little'))
   f.write((0xFF).to_bytes(1, 'little'))
+
+print("Records: ", records)
