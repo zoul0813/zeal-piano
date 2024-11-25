@@ -3,7 +3,8 @@
 #include <zos_errors.h>
 #include <zos_sys.h>
 #include <zos_vfs.h>
-#include "file.h"
+// #include "file.h"
+#include <zgdk.h>
 
 const char* filename;
 
@@ -70,34 +71,34 @@ zos_err_t file_save(Track *track) {
   return ERR_SUCCESS;
 }
 
-zos_err_t file_load(const char* path, Track *track) {
-  (void *)path;
-  (void *)track;
-  // const char* filename = "B:/piano.ptz";
-  zos_dev_t dev = open(filename, O_RDONLY);
-  if(dev < 0) {
-    // failed to open
-    return -dev;
-  }
+// zos_err_t file_load(const char* path, Track *track) {
+//   (void *)path;
+//   (void *)track;
+//   // const char* filename = "B:/piano.ptz";
+//   zos_dev_t dev = open(filename, O_RDONLY);
+//   if(dev < 0) {
+//     // failed to open
+//     return -dev;
+//   }
 
-  uint16_t position = 0;
-  track_init();
+//   uint16_t position = 0;
+//   music_init();
 
-  uint16_t size = sizeof(uint16_t);
-  zos_err_t err = read(dev, &track->length, &size);
-  if(err != ERR_SUCCESS) {
-    printf("Failed to load header, read %d with error %d (%02x)\n", size, err, err);
-    return err;
-  }
+//   uint16_t size = sizeof(uint16_t);
+//   zos_err_t err = read(dev, &track->length, &size);
+//   if(err != ERR_SUCCESS) {
+//     printf("Failed to load header, read %d with error %d (%02x)\n", size, err, err);
+//     return err;
+//   }
 
-  size = sizeof(Record) * track->length;
-  err = read(dev, track->records, &size);
-  if(err != ERR_SUCCESS) {
-    printf("Failed to load records, read %d with %d (%02x)\n", size, err, err);
-    return err;
-  }
+//   size = sizeof(Record) * track->length;
+//   err = read(dev, track->records, &size);
+//   if(err != ERR_SUCCESS) {
+//     printf("Failed to load records, read %d with %d (%02x)\n", size, err, err);
+//     return err;
+//   }
 
-  close(dev);
+//   close(dev);
 
-  return ERR_SUCCESS;
-}
+//   return ERR_SUCCESS;
+// }
