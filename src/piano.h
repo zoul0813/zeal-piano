@@ -46,6 +46,10 @@
 #define VOLUME_MIN          0
 #define VOLUME_MAX          4
 
+#define ONSCREEN_KEY_WHITE  2
+#define ONSCREEN_KEY_BLACK  3
+#define ONSCREEN_KEY_PRESS  4
+
 typedef uint8_t error;
 
 void init(void);

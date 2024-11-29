@@ -30,6 +30,11 @@ int main(int argc, char** argv) {
     // (void *)argc;
     // (void *)argv;
 
+    // uint16_t freq = SOUND_FREQ_TO_DIV(523);
+    // printf("freq: %d %04x \n", freq);
+    // exit(1);
+
+
     if(argc == 1) {
         file_set(argv[0]);
     } else {
@@ -43,8 +48,10 @@ int main(int argc, char** argv) {
     music_load_from_file(file_get(), &track);
 
     while (true) {
-        sound_loop();
+        TSTATE_LOG(1);
+        // sound_loop();
         music_loop(0);
+        TSTATE_LOG(1);
         uint8_t action = input();
         switch (action) {
             case ACTION_QUIT:
@@ -55,7 +62,9 @@ int main(int argc, char** argv) {
             frames++;
         }
 
+        TSTATE_LOG(2);
         update();
+        TSTATE_LOG(2);
         draw();
     }
 
@@ -153,10 +162,9 @@ void init(void) {
     err = gfx_sprite_render(&vctx, STATE_INDEX, &sprite_record);
     if(err) exit(4);
 
-    sound_init();
-    for(uint8_t i = 0; i < MAX_VOICES; i++) {
-        sound_set(i, waveform);
-    }
+    zvb_sound_set_hold(VOICEALL, 0);
+    set_waveform(waveform);
+    set_volume(volume);
 
     music_init(&track);
 
@@ -175,10 +183,6 @@ void deinit(void) {
 
     // deinit sprites
     gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
-    // for(uint8_t i = 0; i < PLAYER_MAX_WIDTH + 2; i++) {
-    //     err = gfx_sprite_set_tile(&vctx, player.sprite_index+i, TILE_EMPTY);
-    // }
-    // err = gfx_sprite_set_tile(&vctx, ball.sprite_index, TILE_EMPTY);
 
     err = ioctl(DEV_STDOUT, CMD_RESET_SCREEN, NULL);
 }
@@ -205,22 +209,37 @@ void load_tilemap(void) {
 static Note *playing[MAX_VOICES] = { NULL, NULL, NULL, NULL };
 static uint8_t playing_changed[MAX_VOICES] = { 0 };
 static uint8_t released = 0;
-static uint8_t key_state[15] = { 0 };
+static uint8_t key_state[ONSCREEN_KEYS] = { 0 };
 
-void keypress(uint8_t note, uint8_t octave) {
-    uint16_t index = note + (octave * 12);
-    if (index >= MAX_NOTES) return;  // ignore it
+void keypress(uint8_t note, int8_t mod) {
+    uint8_t index = note + (mod * 12);
+    if (index >= ONSCREEN_KEYS) return;
+
+    uint8_t note_index = note + ((octave + mod) * 12);
+    if(note_index >= MAX_NOTES) return;
 
     /* If the key is already pressed and we still got a press, ignore */
-    const uint8_t previous_state = key_state[note];
+    const uint8_t previous_state = key_state[index];
     const uint8_t new_state = !released;
 
     if (previous_state == new_state) {
         return;
     }
 
-    key_state[note] = new_state;
-    Note *played = &NOTES[index];
+    PianoKey *pk = &KEYS[index];
+    if(new_state) {
+        gfx_tilemap_place(&vctx, ONSCREEN_KEY_PRESS, 1, pk->x, pk->y);
+        gfx_tilemap_place(&vctx, ONSCREEN_KEY_PRESS, 1, pk->x, pk->y + 1);
+        gfx_tilemap_place(&vctx, ONSCREEN_KEY_PRESS, 1, pk->x, pk->y + 2);
+    } else {
+        uint8_t tile = ONSCREEN_KEY_WHITE + (pk->type - 1);
+        gfx_tilemap_place(&vctx, tile, 1, pk->x, pk->y);
+        gfx_tilemap_place(&vctx, tile, 1, pk->x, pk->y + 1);
+        gfx_tilemap_place(&vctx, tile, 1, pk->x, pk->y + 2);
+    }
+
+    key_state[index] = new_state;
+    Note *played = &NOTES[note_index];
     int8_t free = -1;
 
     uint8_t i = 0;
@@ -267,11 +286,7 @@ void set_octave(uint8_t o) {
 
 void set_waveform(uint8_t w) {
     gfx_tilemap_place(&vctx, TILE_WAVEFORM + waveform, 1, WAVEFORM_X, WAVEFORM_Y);
-
-    sound_stop_all();
-    for (uint8_t i = 0; i < MAX_VOICES; i++) {
-        sound_set(i, w);
-    }
+    zvb_sound_set_voices(VOICEALL, 0, w);
 }
 
 void set_volume(int8_t v) {
@@ -286,10 +301,6 @@ void set_volume(int8_t v) {
         }
         gfx_tilemap_place(&vctx, tile, 1, 2 + (i - 1), 12);
     }
-
-    // char text[7];
-    // sprintf(text, "V %02d", volume);
-    // nprint_string(&vctx, text, 4, WIDTH - 4, 1);
 
     if(volume == 0) {
         zvb_sound_set_volume(VOL_0);
@@ -370,8 +381,8 @@ uint8_t input(void) {
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_PLAY);
                         music_transport(T_PLAY, 0);
                     } else {
-                        music_transport(T_NONE, 0);
                         gfx_sprite_set_tile(&vctx, STATE_INDEX, TILE_EMPTY);
+                        music_transport(T_NONE, 0);
                     }
                     break;
                 case KB_KEY_N: // NEW
@@ -430,63 +441,63 @@ uint8_t input(void) {
         switch (k) {
             /* NOTES */
             case KEY_C:
-                keypress(NOTE_C, octave);
+                keypress(NOTE_C, 0);
                 break;
 
             case KEY_Cs:
-                keypress(NOTE_Cs, octave);
+                keypress(NOTE_Cs, 0);
                 break;
 
             case KEY_D:
-                keypress(NOTE_D, octave);
+                keypress(NOTE_D, 0);
                 break;
 
             case KEY_Ds:
-                keypress(NOTE_Ds, octave);
+                keypress(NOTE_Ds, 0);
                 break;
 
             case KEY_E:
-                keypress(NOTE_E, octave);
+                keypress(NOTE_E, 0);
                 break;
 
             case KEY_F:
-                keypress(NOTE_F, octave);
+                keypress(NOTE_F, 0);
                 break;
 
             case KEY_Fs:
-                keypress(NOTE_Fs, octave);
+                keypress(NOTE_Fs, 0);
                 break;
 
             case KEY_G:
-                keypress(NOTE_G, octave);
+                keypress(NOTE_G, 0);
                 break;
 
             case KEY_Gs:
-                keypress(NOTE_Gs, octave);
+                keypress(NOTE_Gs, 0);
                 break;
 
             case KEY_A:
-                keypress(NOTE_A, octave);
+                keypress(NOTE_A, 0);
                 break;
 
             case KEY_As:
-                keypress(NOTE_As, octave);
+                keypress(NOTE_As, 0);
                 break;
 
             case KEY_B:
-                keypress(NOTE_B, octave);
+                keypress(NOTE_B, 0);
                 break;
 
             case KEY_C2:
-                keypress(NOTE_C, octave + 1);
+                keypress(NOTE_C, 1);
                 break;
 
             case KEY_Cs2:
-                keypress(NOTE_Cs, octave + 1);
+                keypress(NOTE_Cs, 1);
                 break;
 
             case KEY_D2:
-                keypress(NOTE_D, octave + 1);
+                keypress(NOTE_D, 1);
                 break;
         }
 
@@ -505,10 +516,9 @@ void update(void) {
                 Note *current = playing[i];
                 if (playing_changed[i] != 0) {
                     if (current == NULL) {
-                        // FIXME: use stop function ?
-                        sound_play(i, 0, 0xffff);
+                        zvb_sound_set_voices((1 << i), 0, waveform);
                     } else {
-                        sound_play(i, current->freq, 0xffff);
+                        zvb_sound_set_voices((1 << i), current->freq, waveform);
                         playing_changed[i] = 0;
                     }
                 }
@@ -520,6 +530,7 @@ void update(void) {
 void draw(void) {
     gfx_wait_vblank(&vctx);
 
+    TSTATE_LOG(3);
     uint8_t voices = 0;
     uint8_t i = 0;
     for(i = 0; i < MAX_VOICES; i++) {
@@ -562,5 +573,6 @@ void draw(void) {
             break;
     }
 
+    TSTATE_LOG(3);
     gfx_wait_end_vblank(&vctx);
 }
