@@ -4,7 +4,7 @@
 #include <zos_sys.h>
 #include <zos_vfs.h>
 // #include "file.h"
-#include <zgdk.h>
+#include <zgdk/sound/music.h>
 
 const char* filename;
 

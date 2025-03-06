@@ -1,7 +1,6 @@
 #include "piano.h"
 
 #include <stdio.h>
-#include <zgdk.h>
 #include <zos_errors.h>
 #include <zos_keyboard.h>
 #include <zos_sys.h>
@@ -9,6 +8,14 @@
 #include <zos_video.h>
 #include <zvb_gfx.h>
 #include <zvb_hardware.h>
+
+#include <zgdk/utils/debug.h>
+#include <zgdk/types.h>
+#include <zgdk/input/keyboard.h>
+#include <zgdk/sound/music.h>
+#include <zgdk/ascii.h>
+#include <zgdk/utils/print.h>
+#include <zgdk/sound/sounds.h>
 
 #include "assets.h"
 #include "notes.h"

@@ -1,5 +1,5 @@
 #include <zos_errors.h>
-#include <zgdk.h>
+#include <zgdk/sound/music.h>
 
 #ifndef FILE_H
 #define FILE_H

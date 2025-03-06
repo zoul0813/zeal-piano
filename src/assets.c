@@ -46,12 +46,12 @@ void __assets__(void) __naked
 
         // tilemap
         "__tilemap_start:\n"
-        "    .incbin \"assets/piano-0.ztm\"\n"
+        "    .incbin \"assets/piano0000.ztm\"\n"
         "__tilemap_end:\n"
 
         // tilemap_l1
         "__tilemap_l1_start:\n"
-        "    .incbin \"assets/piano-1.ztm\"\n"
+        "    .incbin \"assets/piano0001.ztm\"\n"
         "__tilemap_l1_end:\n"
     );
 }
