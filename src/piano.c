@@ -25,7 +25,18 @@ gfx_context vctx;
 uint16_t frames = 0;
 uint8_t controller_mode = 1;
 
+uint8_t duty_cycles[] = {
+    DUTY_CYCLE_12_5,
+    DUTY_CYCLE_25_0,
+    DUTY_CYCLE_37_5,
+    DUTY_CYCLE_50_0,
+    DUTY_CYCLE_62_5,
+    DUTY_CYCLE_75_0,
+    DUTY_CYCLE_87_5,
+};
+
 uint16_t waveform = 0; // current waveform
+uint8_t duty_cycle = 3;
 uint8_t octave = 1; // current octave
 int8_t volume = 3;
 
@@ -44,15 +55,14 @@ int main(int argc, char** argv) {
 
     if(argc == 1) {
         file_set(argv[0]);
-    } else {
-        file_set("b:/piano.ptz");
     }
 
     init();
 
-    load_tilemap();
     set_volume(volume);
-    music_load_from_file(file_get(), &track);
+    if(file_get()) {
+        music_load_from_file(file_get(), &track);
+    }
 
     while (true) {
         TSTATE_LOG(1);
@@ -159,8 +169,10 @@ void init(void) {
     err = load_tiles(&vctx, &options);
     if (err) exit(1);
 
-    gfx_tilemap_place(&vctx, TILE_WAVEFORM + waveform, 1, WAVEFORM_X, WAVEFORM_Y);
-    gfx_tilemap_place(&vctx, TILE_OCTAVE + octave, 1, OCTAVE_X, OCTAVE_Y);
+    load_tilemap();
+
+    set_octave(octave);
+    set_waveform(waveform);
 
     sprite_record.flags = SPRITE_NONE;
     sprite_record.tile = TILE_EMPTY;
@@ -293,7 +305,8 @@ void set_octave(uint8_t o) {
 
 void set_waveform(uint8_t w) {
     gfx_tilemap_place(&vctx, TILE_WAVEFORM + waveform, 1, WAVEFORM_X, WAVEFORM_Y);
-    zvb_sound_set_voices(VOICEALL, 0, w);
+    gfx_tilemap_place(&vctx, TILE_NUMBER + duty_cycle, 1, WAVEFORM_X, WAVEFORM_Y + 1);
+    zvb_sound_set_voices(VOICEALL, 0, w | duty_cycles[duty_cycle]);
 }
 
 void set_volume(int8_t v) {
@@ -420,6 +433,19 @@ uint8_t input(void) {
                     set_waveform(waveform);
                     break;
 
+                case KB_LEFT_ARROW:
+                    // duty cycle down
+                    duty_cycle--;
+                    if(duty_cycle >= sizeof(duty_cycles)) duty_cycle = sizeof(duty_cycles) - 1;
+                    gfx_tilemap_place(&vctx, TILE_NUMBER + duty_cycle, 1, WAVEFORM_X, WAVEFORM_Y + 1);
+                    break;
+                case KB_RIGHT_ARROW:
+                    // duty cycle up
+                    duty_cycle++;
+                    if(duty_cycle >= sizeof(duty_cycles)) duty_cycle = 0;
+                    gfx_tilemap_place(&vctx, TILE_NUMBER + duty_cycle, 1, WAVEFORM_X, WAVEFORM_Y + 1);
+                    break;
+
                 /* OCTAVE */
                 case '1':
                     set_octave(0);
@@ -523,9 +549,9 @@ void update(void) {
                 Note *current = playing[i];
                 if (playing_changed[i] != 0) {
                     if (current == NULL) {
-                        zvb_sound_set_voices((1 << i), 0, waveform);
+                        zvb_sound_set_voices((1 << i), 0, waveform | duty_cycles[duty_cycle]);
                     } else {
-                        zvb_sound_set_voices((1 << i), current->freq, waveform);
+                        zvb_sound_set_voices((1 << i), current->freq, waveform | duty_cycles[duty_cycle]);
                         playing_changed[i] = 0;
                     }
                 }
